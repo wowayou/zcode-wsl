@@ -170,6 +170,39 @@ If a new ZCode release breaks something:
 
 **A `drmGetDevices2()` error on startup** is normal: WSLg has no GPU node to enumerate, so rendering falls back to software.
 
+## Crash dumps will eat your C: drive
+
+This is the one thing in this README that can cost you real trouble, and it has nothing to do with ZCode being at fault. **Budget a few minutes to change one setting before you start using the app.**
+
+When a process inside WSL crashes, WSL writes a core dump to `%LOCALAPPDATA%\Temp\wsl-crashes`. Two defaults combine badly:
+
+- WSL keeps **10** dumps by default (`maxCrashDumpCount`)
+- ZCode is an Electron app, so each dump is enormous — far larger than the process's actual memory use, because the dump covers the whole mapped address space
+
+During development of this installer, ten dumps accumulated to **104 GB** and filled a 476 GB C: drive to 100%. Four were ZCode (the largest single file was **39 GB**), six were Node.js (~3.4 GB each). Nothing warned us until Windows started refusing to write files.
+
+**Set this once, in `%UserProfile%\.wslconfig`:**
+
+```ini
+[wsl2]
+# 10 dumps of an Electron app can exceed 100 GB
+maxCrashDumpCount=2
+# and keep them off the system drive entirely
+crashDumpFolder=D:\\wsl\\crashes
+```
+
+Note the doubled backslashes — `.wslconfig` requires them. Run `wsl --shutdown` for the change to take effect. Use `-1` instead of `2` to disable dump collection altogether; keeping one or two is more useful if you ever need to report a crash.
+
+To check whether you already have a problem:
+
+```powershell
+Get-ChildItem "$env:LOCALAPPDATA\Temp\wsl-crashes"
+```
+
+The filenames encode the crashed binary's path, so it is easy to tell ZCode dumps from everything else. Quit ZCode before deleting them.
+
+**One cause is worth knowing about**, because it was self-inflicted and is now prevented: replacing the app's files while it is running reliably crashes it and produces one of these giant dumps. `install.sh` refuses to run when ZCode is open for exactly this reason. If you bypass that check, expect a dump.
+
 ## Troubleshooting
 
 **Sign-in hangs on *Waiting for Z.ai authentication…*** — the browser handoff is broken. Test it:
@@ -190,6 +223,8 @@ reg.exe query 'HKCU\Software\Classes\zcode\shell\open\command' /ve
 ```
 
 **Logs.** `~/.zcode/v2/logs/` — one file per day, and quite readable. The sign-in flow logs every step.
+
+**C: drive suddenly full.** Check `%LOCALAPPDATA%\Temp\wsl-crashes` before anything else — see [Crash dumps will eat your C: drive](#crash-dumps-will-eat-your-c-drive).
 
 ## Uninstall
 
