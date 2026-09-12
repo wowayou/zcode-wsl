@@ -80,7 +80,11 @@ if WIN_LOCALAPPDATA="$(win_env LOCALAPPDATA)" && [ -n "$WIN_LOCALAPPDATA" ]; the
     # If install.sh found a handler already registered (typically ZCode for
     # Windows), it saved it. Put it back so that copy keeps working.
     prev="${helper:+$helper/previous-handler.reg}"
-    if [ -n "$prev" ] && [ -f "$prev" ]; then
+    # reg.exe writes UTF-16, so strip NULs before matching. Never restore a
+    # backup that points back at our own router: that would leave a dead
+    # handler aimed at files this script is about to delete.
+    if [ -n "$prev" ] && [ -f "$prev" ] \
+       && ! tr -d '\000' < "$prev" | grep -q 'zcode-wsl'; then
       if reg.exe import "$(wslpath -w "$prev")" >/dev/null 2>&1; then
         ok "restored the zcode:// handler that was there before"
       else

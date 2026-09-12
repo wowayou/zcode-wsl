@@ -63,6 +63,29 @@ ok()   { printf '    %s✓%s %s\n' "$c_green" "$c_reset" "$1"; }
 warn() { printf '    %s!%s %s\n' "$c_yellow" "$c_reset" "$1"; }
 die()  { printf '\n%serror:%s %s\n' "$c_red$c_bold" "$c_reset" "$1" >&2; exit 1; }
 
+# Progress bar for the five install stages. Block characters need a UTF-8
+# locale; anything else gets ASCII so the bar never turns into mojibake.
+TOTAL_STAGES=5
+STAGE_NO=0
+BAR_WIDTH=22
+case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+  *UTF-8*|*utf8*|*UTF8*) BAR_FULL='█'; BAR_EMPTY='░' ;;
+  *)                     BAR_FULL='#'; BAR_EMPTY='-' ;;
+esac
+
+stage() {
+  STAGE_NO=$((STAGE_NO + 1))
+  local title="$1" filled i bar=''
+  filled=$(( STAGE_NO * BAR_WIDTH / TOTAL_STAGES ))
+  for ((i = 0; i < BAR_WIDTH; i++)); do
+    if [ "$i" -lt "$filled" ]; then bar="$bar$BAR_FULL"; else bar="$bar$BAR_EMPTY"; fi
+  done
+  printf '\n%s%s%s %s%d/%d%s  %s%s%s\n' \
+    "$c_blue" "$bar" "$c_reset" \
+    "$c_dim" "$STAGE_NO" "$TOTAL_STAGES" "$c_reset" \
+    "$c_bold" "$title" "$c_reset"
+}
+
 TMP_FILES=()
 TMP_DIRS=()
 cleanup() {
@@ -380,7 +403,7 @@ if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
 fi
 
 # ------------------------------------------------------------ 1. the app ------
-step "1/5  ZCode $VERSION"
+stage "ZCode $VERSION"
 
 if [ "$SKIP_DOWNLOAD" -eq 1 ]; then
   info "keeping the existing install"
@@ -475,7 +498,7 @@ fi
 # The most common failure by far: WSL has no browser, xdg-open fails silently,
 # the sign-in page never opens, and the app sits on
 # "Waiting for Z.ai authentication..." forever.
-step "2/5  Browser handoff to Windows"
+stage "Browser handoff to Windows"
 if [ "$SKIP_BROWSER" -eq 1 ]; then
   warn "skipped on request — OAuth sign-in will not be able to complete"
 elif xdg-open --version >/dev/null 2>&1 && xdg-settings get default-web-browser 2>/dev/null | grep -q .; then
@@ -509,7 +532,7 @@ else
 fi
 
 # --------------------------------------------------------- 3. desktop entry ---
-step "3/5  Linux desktop entry"
+stage "Linux desktop entry"
 FLAGS_SP=""
 [ -n "$ZCODE_FLAGS" ] && FLAGS_SP=" $ZCODE_FLAGS"
 
@@ -535,7 +558,7 @@ ok "zcode.desktop written"
 # Only WSL knows that scheme, so Windows drops it. A small forwarder on the
 # Windows side closes the loop — and, if ZCode for Windows is also installed,
 # keeps that copy working too.
-step "4/5  zcode:// handler on Windows"
+stage "zcode:// handler on Windows"
 if [ "$SKIP_PROTOCOL" -eq 1 ]; then
   warn "skipped on request"
   info "sign-in still works (the app also polls Z.ai), but in-app zcode:// links will not"
@@ -548,7 +571,8 @@ else
   PREV_REG="$WIN_HELPER_DIR/previous-handler.reg"
   if [ ! -f "$PREV_REG" ]; then
     if reg.exe export 'HKCU\Software\Classes\zcode' "$(wslpath -w "$PREV_REG")" /y >/dev/null 2>&1; then
-      if grep -qa 'zcode-wsl' "$PREV_REG" 2>/dev/null; then
+      # reg.exe writes UTF-16, so strip NULs before matching or grep sees nothing.
+      if tr -d '\000' < "$PREV_REG" | grep -qa 'zcode-wsl'; then
         rm -f "$PREV_REG"           # our own earlier install; nothing to preserve
       else
         ok "backed up the existing zcode:// handler"
@@ -619,7 +643,7 @@ fi
 # ------------------------------------------------------------- 5. shortcut ----
 # WSLg is meant to mirror .desktop files into the Start Menu, but it regularly
 # skips apps. Creating the shortcut directly always works.
-step "5/5  Windows Start Menu shortcut"
+stage "Windows Start Menu shortcut"
 if [ "$SKIP_SHORTCUT" -eq 1 ]; then
   warn "skipped on request"
   info "launch with:  $APP_BIN"
