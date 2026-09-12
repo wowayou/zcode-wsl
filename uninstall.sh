@@ -65,18 +65,37 @@ ok "zcode.desktop"
 
 step "Removing Windows integration"
 if WIN_LOCALAPPDATA="$(win_env LOCALAPPDATA)" && [ -n "$WIN_LOCALAPPDATA" ]; then
-  # Only unregister if the handler still points at our router, so an existing
-  # ZCode for Windows installation keeps its own registration.
+  helper="$(wslpath -u "$WIN_LOCALAPPDATA\\zcode-wsl" 2>/dev/null || true)"
+
+  # Only touch the registration if it still points at our router: if something
+  # else claimed zcode:// in the meantime, that is not ours to remove.
   cur="$(reg.exe query 'HKCU\Software\Classes\zcode\shell\open\command' /ve 2>/dev/null | tr -d '\r' || true)"
   if printf '%s' "$cur" | grep -q 'zcode-wsl'; then
-    reg.exe delete 'HKCU\Software\Classes\zcode' /f >/dev/null 2>&1 \
-      && ok "zcode:// handler unregistered" || warn "could not unregister zcode://"
+    if reg.exe delete 'HKCU\Software\Classes\zcode' /f >/dev/null 2>&1; then
+      ok "zcode:// handler unregistered"
+    else
+      warn "could not unregister zcode://"
+    fi
+
+    # If install.sh found a handler already registered (typically ZCode for
+    # Windows), it saved it. Put it back so that copy keeps working.
+    prev="${helper:+$helper/previous-handler.reg}"
+    if [ -n "$prev" ] && [ -f "$prev" ]; then
+      if reg.exe import "$(wslpath -w "$prev")" >/dev/null 2>&1; then
+        ok "restored the zcode:// handler that was there before"
+      else
+        warn "could not restore the previous handler; it is kept at:"
+        printf '      %s\\zcode-wsl\\previous-handler.reg\n' "$WIN_LOCALAPPDATA"
+        KEEP_HELPER=1
+      fi
+    fi
   elif [ -n "$cur" ]; then
-    warn "zcode:// points elsewhere now — left untouched"
+    warn "zcode:// points somewhere else now — left untouched"
   fi
 
-  helper="$(wslpath -u "$WIN_LOCALAPPDATA\\zcode-wsl" 2>/dev/null || true)"
-  [ -n "$helper" ] && [ -d "$helper" ] && rm -rf "$helper" && ok "helper files"
+  if [ -n "$helper" ] && [ -d "$helper" ] && [ "${KEEP_HELPER:-0}" -eq 0 ]; then
+    rm -rf "$helper" && ok "helper files"
+  fi
 
   if progs="$(powershell.exe -NoProfile -Command '(New-Object -ComObject WScript.Shell).SpecialFolders("Programs")' 2>/dev/null | tr -d '\r')" \
      && [ -n "$progs" ]; then
