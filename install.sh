@@ -356,6 +356,29 @@ else
   SKIP_DOWNLOAD=0
 fi
 
+# Replacing the tree under a running instance pulls files out from beneath it,
+# which leaves the app in a half-broken state. /proc/<pid>/exe is unreliable
+# here (it reads "(deleted)" after an earlier swap), so match on argv[0].
+running_pids() {
+  local p arg0
+  for p in /proc/[0-9]*; do
+    [ -r "$p/cmdline" ] || continue
+    IFS= read -r -d '' arg0 < "$p/cmdline" 2>/dev/null || continue
+    [ "$arg0" = "$APP_BIN" ] && printf '%s ' "${p#/proc/}"
+  done
+  return 0      # a failed match on the last iteration must not fail the function
+}
+
+if [ "$SKIP_DOWNLOAD" -eq 0 ]; then
+  RUNNING="$(running_pids || true)"
+  if [ -n "$RUNNING" ]; then
+    die "ZCode is running right now (pids: ${RUNNING% }).
+       Installing over it would pull files out from under the running app.
+       Quit ZCode, then run this again. To stop it from here:
+         pkill -f '$APP_BIN'"
+  fi
+fi
+
 # ------------------------------------------------------------ 1. the app ------
 step "1/5  ZCode $VERSION"
 

@@ -45,10 +45,12 @@ The middle one is the real trap: the app looks broken, but it is patiently waiti
 --skip-protocol      Don't register the zcode:// handler on Windows
 --skip-shortcut      Don't create the Start Menu shortcut
 --skip-browser       Don't install wslu (sign-in will not work)
--y, --yes            Don't ask for confirmation
+--force              Reinstall even if that version is already installed
 ```
 
-Re-running `install.sh` upgrades in place. Your settings, sessions and credentials live in `~/.zcode/` and are never touched.
+Re-running `install.sh` upgrades in place: same version is a no-op (`--force` overrides), newer version replaces the app directory. Your settings, sessions and credentials live in `~/.zcode/` and are never touched.
+
+If ZCode is running, the installer stops and asks you to quit it first — replacing the files under a running instance leaves it half-broken.
 
 ---
 
