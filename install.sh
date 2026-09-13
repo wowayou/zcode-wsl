@@ -22,7 +22,7 @@ set -euo pipefail
 
 # Last version this installer was tested against. Used only when version
 # discovery fails (offline, or Z.ai restructured their download page).
-# See CONTRIBUTING.md → "Keeping up with upstream".
+# See README → "Keeping this repo alive".
 PINNED_VERSION="3.11.2"
 
 DOWNLOAD_BASE="https://cdn-zcode.z.ai/zcode/electron/releases"

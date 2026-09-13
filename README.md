@@ -1,5 +1,35 @@
 # zcode-wsl
 
+> [!IMPORTANT]
+> **You probably don't need this. Use the official WSL remote connection instead.**
+>
+> The ZCode desktop client **for Windows** connects directly to a WSL distribution on
+> the same machine: sidebar `+` next to Projects → **Remote Connection** → **WSL**.
+> Pick a distro, optionally a Linux user, done. File reads and writes, terminal
+> commands, Git and the Agent all run inside WSL; the account, model config and UI stay
+> on the native Windows client. See
+> [Remote Development](https://zcode.z.ai/en/docs/remote-development).
+>
+> That reaches the same goal this repo was built for — working against a Linux
+> toolchain on a Windows machine — with no AppImage, no `libfuse2`, no `wslu`, no
+> registry write and no `sudo`. It also sidesteps every WSLg quirk documented below:
+> the dead minimise button, software rendering, the CJK first-character bug, and the
+> giant Electron crash dumps.
+>
+> The feature was already shipping when this installer was written in September 2026.
+> We just didn't know. The repo stays up for the one case it still fits, and as a
+> record of the WSLg failure modes and their fixes.
+
+**Still want the Linux GUI build itself running inside WSL?** That's what this
+installer does, and it works. The honest reason to pick it: with remote connection your
+*workspace* lives in WSL but the *app* lives on Windows, and local skills, MCP servers
+and plugins [don't carry over automatically](https://zcode.z.ai/en/docs/remote-development) —
+user-level ones sync manually, item by item, while project-level skills and
+workspace-level MCP servers are out of scope. Running the whole app inside WSL keeps
+one environment with everything already in it. If that isn't you, use remote connection.
+
+---
+
 Run the official [ZCode](https://zcode.z.ai) desktop app inside WSL2, and have it behave like a normal Windows app: a Start Menu entry that launches without a console window, and a sign-in flow that actually completes.
 
 ZCode ships a Linux build that runs fine under WSLg — but three things break silently, and this installer fixes exactly those three. **Nothing is patched, repackaged or redistributed.** The app is the official AppImage, downloaded from Z.ai's own CDN at install time.
@@ -15,7 +45,7 @@ Then: **Start Menu → ZCode (WSL)**. Click sign-in, authorise in the browser ta
 
 ---
 
-## Why you need this
+## What this fixes
 
 Install the Linux AppImage in WSL by hand and you hit, in order:
 
@@ -235,17 +265,20 @@ reg.exe query 'HKCU\Software\Classes\zcode\shell\open\command' /ve
 
 Restores any previous `zcode://` handler, leaves `wslu` installed (other tools use it), and by default keeps your data.
 
-## Contributing
+## Archived
 
-Issues and PRs welcome, especially:
+This repository is archived and read-only: issues and pull requests are closed, because
+the [official WSL remote connection](https://zcode.z.ai/en/docs/remote-development)
+supersedes it. Fork it freely — MIT.
 
-- other WSL distros (only Ubuntu 24.04 is tested end-to-end)
-- aarch64 — the code paths exist but are untested
-- a new ZCode release that breaks discovery
+What was never finished, if you do fork:
 
-Please include `./install.sh --plan` output and your `wsl --version`.
+- only Ubuntu 24.04 is tested end-to-end; other WSL distros are unverified
+- aarch64 code paths exist but were never run
+- version discovery scrapes a public page and will break on a redesign — `--version` is
+  the permanent escape hatch, see [Compatibility](#compatibility-what-happens-when-zai-changes-things)
 
-Keep the scope tight: this repo fixes WSL integration gaps and nothing else. It should never patch, bundle or vendor any part of ZCode.
+Keep the scope tight if you build on it: this repo fixes WSL integration gaps and nothing else. It should never patch, bundle or vendor any part of ZCode.
 
 ## Licence
 
